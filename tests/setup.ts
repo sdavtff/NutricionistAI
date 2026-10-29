@@ -7,5 +7,5 @@ import { closeDB } from '../src/db/index';
 afterEach(async () => {
   await closeDB();
   globalThis.indexedDB = new IDBFactory();
-  localStorage.clear();
+  globalThis.localStorage?.clear();
 });

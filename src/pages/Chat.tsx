@@ -93,12 +93,12 @@ export function ChatPage() {
 
       {status && !status.configured ? (
         <Alert kind="warning" title="IA indisponível">
-          {!status.online ? 'Você está offline.' : status.needsServerUrl ? 'Informe o endereço do servidor de IA em Perfil e configurações.' : !status.serverReachable ? 'O servidor de IA não está em execução.' : 'O servidor não tem a chave da IA configurada (ANTHROPIC_API_KEY).'} O histórico continua disponível para consulta.
+          {!status.online ? 'Você está offline.' : status.needsServerUrl ? 'Informe o endereço do servidor de IA em Perfil e configurações.' : !status.serverReachable ? 'O servidor de IA não está em execução.' : 'O servidor não tem a chave da IA configurada (OPENROUTER_API_KEY).'} O histórico continua disponível para consulta.
         </Alert>
       ) : null}
       {!consent?.aiProcessing ? (
         <Alert kind="warning" title="Autorização necessária">
-          Para conversar, suas mensagens são enviadas ao serviço de IA (Anthropic).{' '}
+          Para conversar, suas mensagens são enviadas ao serviço de IA (OpenRouter e o provedor do modelo escolhido).{' '}
           <button className="btn btn-sm btn-soft" onClick={async () => { if (consent) await saveConsent({ ...consent, aiProcessing: true }); await refresh(); }}>Autorizar</button>
         </Alert>
       ) : (

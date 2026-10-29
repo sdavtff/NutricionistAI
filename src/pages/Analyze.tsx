@@ -441,7 +441,7 @@ export function AnalyzePage() {
           }}>Autorizar</Button>
         </>}>
         <div className="stack small">
-          <p>Para analisar a foto, a imagem recortada e comprimida e as informações que você digitar serão enviadas ao nosso servidor e, dele, ao serviço de IA da <strong>Anthropic (Claude)</strong>, apenas no momento da análise.</p>
+          <p>Para analisar a foto, a imagem recortada e comprimida e as informações que você digitar serão enviadas ao nosso servidor e, dele, à <strong>OpenRouter</strong>, que as repassa ao provedor do modelo de IA configurado, apenas no momento da análise.</p>
           <p className="muted">Nosso servidor não armazena as fotos. Consulte a política de privacidade do provedor. Você pode revogar esta autorização a qualquer momento.</p>
           <Link to="/privacidade">Ver detalhes em Privacidade e dados</Link>
         </div>
@@ -455,7 +455,7 @@ function AIStatusNotice({ status, consentAI, onEnable }: { status: AIStatus | nu
   if (!status.online) return <Alert kind="warning" title="Você está offline">A análise por IA exige internet. Você ainda pode registrar refeições manualmente no diário.</Alert>;
   if (status.needsServerUrl) return <Alert kind="info" title="Configure o servidor de IA">No app Android, informe o endereço do servidor de IA em <Link to="/perfil">Perfil e configurações</Link>. Enquanto isso, o registro manual com foto funciona normalmente.</Alert>;
   if (!status.serverReachable) return <Alert kind="warning" title="Servidor de IA indisponível">O servidor intermediário não respondeu. Rode <code>npm run dev</code> (ou <code>npm start</code>) — veja o README. Registro manual continua disponível.</Alert>;
-  if (!status.configured) return <Alert kind="info" title="IA não configurada">Defina <code>ANTHROPIC_API_KEY</code> no arquivo <code>.env</code> do servidor para ativar a análise por foto. Até lá, use o registro manual com foto.</Alert>;
+  if (!status.configured) return <Alert kind="info" title="IA não configurada">Defina <code>OPENROUTER_API_KEY</code> no arquivo <code>.env</code> do servidor para ativar a análise por foto. Até lá, use o registro manual com foto.</Alert>;
   if (!consentAI) return <Alert kind="info" title="IA disponível, aguardando sua autorização">Você ainda não autorizou o envio de fotos ao serviço de IA. <button className="btn btn-sm btn-soft" style={{ marginLeft: 6 }} onClick={onEnable}>Autorizar</button></Alert>;
   return <p className="tiny muted center"><Sparkles size={12} /> IA ativa ({status.model}). Os resultados são estimativas e devem ser revisados.</p>;
 }

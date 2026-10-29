@@ -1,18 +1,16 @@
-// Integração com o modelo de linguagem/visão (Claude, da Anthropic). Executa APENAS no servidor:
-// a chave ANTHROPIC_API_KEY nunca é enviada ao navegador.
-import Anthropic from '@anthropic-ai/sdk';
+// Integração com modelos de linguagem/visão via OpenRouter (https://openrouter.ai).
+// Executa APENAS no servidor: a chave OPENROUTER_API_KEY nunca é enviada ao navegador.
 import { z } from 'zod';
 
-export const MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-5-5';
+const BASE_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
+/** Modelo padrão (texto e imagem). Precisa aceitar imagens para a análise de fotos. */
+export const MODEL = process.env.OPENROUTER_MODEL || 'anthropic/claude-opus-5.5';
+/** Modelo opcional só para fotos (ex.: um modelo de visão mais barato). */
+export const VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || MODEL;
+export const PROVIDER = 'OpenRouter';
 
-let client: Anthropic | null = null;
 export function aiConfigured() {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
-}
-function getClient() {
-  if (!aiConfigured()) throw new HttpError(503, 'A IA não está configurada no servidor (defina ANTHROPIC_API_KEY no arquivo .env).');
-  client ??= new Anthropic();
-  return client;
+  return Boolean(process.env.OPENROUTER_API_KEY);
 }
 
 export class HttpError extends Error {
@@ -30,31 +28,97 @@ const SAFETY_RULES = `Regras obrigatórias:
 - Se a pessoa relatar sinais de transtorno alimentar ou risco à saúde, acolha com empatia e recomende ajuda profissional (no Brasil, o CVV atende 24h pelo telefone 188).
 - Respeite as preferências, alergias e restrições informadas.`;
 
-type Effort = 'low' | 'medium' | 'high';
+type ContentPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+type ChatMsg = { role: 'system' | 'user' | 'assistant'; content: string | ContentPart[] };
+
+interface CompletionResponse {
+  choices?: { message?: { content?: string | null; refusal?: string | null }; finish_reason?: string | null }[];
+  error?: { code?: number | string; message?: string };
+}
+
+/** Chamada à API de chat completions da OpenRouter, com tradução dos erros para mensagens ao usuário. */
+async function complete(opts: { model: string; messages: ChatMsg[]; maxTokens: number; schema?: { name: string; schema: Record<string, unknown> } }): Promise<string> {
+  const body: Record<string, unknown> = {
+    model: opts.model,
+    messages: opts.messages,
+    max_tokens: opts.maxTokens,
+  };
+  if (opts.schema) {
+    body.response_format = { type: 'json_schema', json_schema: { name: opts.schema.name, strict: true, schema: opts.schema.schema } };
+  }
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        // Identificação opcional do app nos painéis da OpenRouter.
+        'HTTP-Referer': process.env.OPENROUTER_SITE_URL || 'https://github.com/sdavtff/NutricionistAI',
+        'X-Title': 'Nutricionist AI',
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(170_000),
+    });
+  } catch (e) {
+    if ((e as Error).name === 'TimeoutError') throw new HttpError(504, 'A IA demorou demais para responder. Tente novamente.');
+    throw new HttpError(502, 'Não foi possível conectar à OpenRouter.');
+  }
+  const data = (await res.json().catch(() => ({}))) as CompletionResponse;
+  const code = Number(data.error?.code ?? res.status);
+  if (!res.ok || data.error) {
+    console.error('[openrouter] erro', res.status, data.error?.message);
+    if (code === 401) throw new HttpError(503, 'Chave da OpenRouter inválida no servidor.');
+    if (code === 402) throw new HttpError(503, 'Créditos insuficientes na conta da OpenRouter.');
+    if (code === 403) throw new HttpError(422, 'O conteúdo foi bloqueado pela moderação do provedor de IA.');
+    if (code === 404) throw new HttpError(503, `O modelo "${opts.model}" não está disponível na OpenRouter (ou não aceita os recursos pedidos).`);
+    if (code === 429) throw new HttpError(429, 'Limite de uso da IA atingido. Tente novamente em instantes.');
+    if (code === 408) throw new HttpError(504, 'A IA demorou demais para responder. Tente novamente.');
+    throw new HttpError(502, 'O serviço de IA retornou um erro. Tente novamente.');
+  }
+  const choice = data.choices?.[0];
+  if (choice?.message?.refusal) throw new HttpError(422, 'A IA recusou este pedido. Tente reformular ou use outra imagem.');
+  if (choice?.finish_reason === 'length') throw new HttpError(502, 'A resposta da IA ficou incompleta. Tente novamente.');
+  const text = (choice?.message?.content ?? '').trim();
+  if (!text) throw new HttpError(502, 'A IA não retornou resposta. Tente novamente.');
+  return text;
+}
+
+/** Extrai JSON mesmo se o modelo envolver a resposta em ```json ... ```. */
+export function parseJSONLoose(text: string): unknown {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const raw = (fenced ? fenced[1] : text).trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const first = raw.indexOf('{');
+    const last = raw.lastIndexOf('}');
+    if (first >= 0 && last > first) return JSON.parse(raw.slice(first, last + 1));
+    throw new Error('json');
+  }
+}
 
 async function callJSON<T>(opts: {
   system: string;
-  content: Anthropic.Beta.Messages.BetaContentBlockParam[];
+  content: ContentPart[];
+  schemaName: string;
   schema: Record<string, unknown>;
   validator: z.ZodType<T>;
   maxTokens?: number;
-  effort?: Effort;
+  model?: string;
 }): Promise<T> {
-  const res = await getClient().beta.messages.create({
-    model: MODEL,
-    max_tokens: opts.maxTokens ?? 8000,
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    system: opts.system,
-    output_config: { effort: opts.effort ?? 'medium', format: { type: 'json_schema', schema: opts.schema } },
-    messages: [{ role: 'user', content: opts.content }],
+  const text = await complete({
+    model: opts.model ?? MODEL,
+    maxTokens: opts.maxTokens ?? 8000,
+    schema: { name: opts.schemaName, schema: opts.schema },
+    messages: [
+      { role: 'system', content: `${opts.system}\n\nResponda SOMENTE com um objeto JSON válido que siga o esquema solicitado, sem texto adicional.` },
+      { role: 'user', content: opts.content },
+    ],
   });
-  if (res.stop_reason === 'refusal') throw new HttpError(422, 'A IA recusou este pedido. Tente reformular ou use outra imagem.');
-  if (res.stop_reason === 'max_tokens') throw new HttpError(502, 'A resposta da IA ficou incompleta. Tente novamente.');
-  const text = res.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('');
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text);
+    parsed = parseJSONLoose(text);
   } catch {
     throw new HttpError(502, 'A IA retornou um formato inválido. Tente novamente.');
   }
@@ -173,10 +237,11 @@ Tarefa: analisar a FOTO de uma refeição/alimento e identificar os itens para c
   return callJSON({
     system,
     validator: analysisValidator,
+    schemaName: 'analise_refeicao',
     schema: analysisSchema,
-    effort: 'medium',
+    model: VISION_MODEL,
     content: [
-      { type: 'image', source: { type: 'base64', media_type: input.mediaType, data: input.imageBase64 } },
+      { type: 'image_url', image_url: { url: `data:${input.mediaType};base64,${input.imageBase64}` } },
       {
         type: 'text',
         text: `CATÁLOGO (id → nome):\n${input.catalog.map((c) => `${c.id} → ${c.name}`).join('\n')}\n\n${hintText || 'Sem informações adicionais do usuário.'}\n\nAnalise a foto e responda no formato JSON solicitado.`,
@@ -268,8 +333,8 @@ ${input.computed.restrictive ? '- ATENÇÃO: o perfil exige cautela (menor de id
   return callJSON({
     system,
     validator: planValidator,
+    schemaName: 'plano_alimentar',
     schema: planSchema,
-    effort: 'medium',
     maxTokens: 12000,
     content: [{
       type: 'text',
@@ -296,17 +361,9 @@ ${input.profile ? `\nPerfil autorizado pelo usuário (use para personalizar, sem
 
   // A conversa precisa começar com uma mensagem do usuário.
   const msgs = input.messages.slice(input.messages.findIndex((m) => m.role === 'user'));
-  const res = await getClient().beta.messages.create({
+  return complete({
     model: MODEL,
-    max_tokens: 4000,
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
-    system,
-    output_config: { effort: 'low' },
-    messages: msgs,
+    maxTokens: 4000,
+    messages: [{ role: 'system', content: system }, ...msgs],
   });
-  if (res.stop_reason === 'refusal') return 'Não posso ajudar com esse pedido. Se precisar de orientação de saúde, procure um(a) profissional qualificado(a).';
-  const text = res.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('').trim();
-  if (!text) throw new HttpError(502, 'A IA não retornou resposta. Tente novamente.');
-  return text;
 }

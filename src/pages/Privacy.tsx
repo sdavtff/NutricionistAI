@@ -19,7 +19,7 @@ export function PrivacyPolicy() {
       <p><strong>Onde ficam seus dados:</strong> conta, perfil, respostas do questionário, refeições, fotos, peso, hábitos, conversas e configurações são armazenados <strong>somente neste navegador/dispositivo</strong> (IndexedDB). Não temos um servidor com cópia dos seus dados.</p>
       <p><strong>Quando algo sai do dispositivo:</strong> apenas quando você usa, com autorização, um recurso que depende da internet:</p>
       <ul style={{ margin: 0, paddingLeft: 18 }}>
-        <li><strong>Análise de foto, plano com IA e chat:</strong> a foto comprimida, o texto digitado e, se você permitir, seu perfil (sem nome e e-mail) passam pelo servidor do app e são enviados ao provedor de IA (Anthropic). O servidor do app não armazena esse conteúdo.</li>
+        <li><strong>Análise de foto, plano com IA e chat:</strong> a foto comprimida, o texto digitado e, se você permitir, seu perfil (sem nome e e-mail) passam pelo servidor do app e são enviados à <strong>OpenRouter</strong>, que os encaminha ao provedor do modelo de IA configurado (por padrão, Anthropic/Claude). O servidor do app não armazena esse conteúdo; consulte as políticas de privacidade da OpenRouter e do provedor do modelo.</li>
         <li><strong>Consulta de rótulos:</strong> o termo ou código de barras buscado é enviado ao Open Food Facts.</li>
       </ul>
       <p><strong>Finalidade e base legal (LGPD):</strong> tratamos os dados para oferecer as funcionalidades educativas do app, com base no seu consentimento, que pode ser revogado a qualquer momento.</p>
@@ -113,7 +113,7 @@ export function PrivacyPage() {
             await refresh();
             toast(e.target.checked ? 'Uso da IA autorizado.' : 'Autorização da IA revogada. Nada mais será enviado.');
           }} />
-          Enviar fotos, mensagens e pedidos ao serviço de IA (Anthropic) quando eu usar os recursos de IA.
+          Enviar fotos, mensagens e pedidos ao serviço de IA (OpenRouter e o provedor do modelo) quando eu usar os recursos de IA.
         </label>
         <label className="check">
           <input type="checkbox" checked={!!consent?.aiShareProfile} disabled={!consent?.aiProcessing} onChange={async (e) => { if (consent) await saveConsent({ ...consent, aiShareProfile: e.target.checked }); await refresh(); }} />

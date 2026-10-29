@@ -7,8 +7,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import type { ZodType } from 'zod';
-import Anthropic from '@anthropic-ai/sdk';
-import { aiConfigured, analyzeImage, analyzeRequest, chat, chatRequest, generatePlan, HttpError, MODEL, planRequest } from './ai';
+import { aiConfigured, analyzeImage, analyzeRequest, chat, chatRequest, generatePlan, HttpError, MODEL, planRequest, PROVIDER, VISION_MODEL } from './ai';
 
 try {
   process.loadEnvFile?.('.env');
@@ -108,16 +107,16 @@ const server = createServer(async (req, res) => {
 
   try {
     if (url.pathname === '/api/health' && req.method === 'GET') {
-      return send(res, 200, { ok: true, ai: aiConfigured(), model: aiConfigured() ? MODEL : null });
+      return send(res, 200, { ok: true, ai: aiConfigured(), provider: aiConfigured() ? PROVIDER : null, model: aiConfigured() ? MODEL : null });
     }
     if (url.pathname.startsWith('/api/ai/')) {
       if (req.method !== 'POST') throw new HttpError(405, 'Método não permitido.');
       const ip = req.socket.remoteAddress ?? 'unknown';
       if (rateLimited(ip)) throw new HttpError(429, 'Muitas requisições. Aguarde um minuto e tente novamente.');
-      if (!aiConfigured()) throw new HttpError(503, 'A IA não está configurada no servidor (defina ANTHROPIC_API_KEY no arquivo .env).');
+      if (!aiConfigured()) throw new HttpError(503, 'A IA não está configurada no servidor (defina OPENROUTER_API_KEY no arquivo .env).');
       switch (url.pathname) {
         case '/api/ai/analyze-image':
-          return send(res, 200, { result: await analyzeImage(await readJSON(req, analyzeRequest)), model: MODEL });
+          return send(res, 200, { result: await analyzeImage(await readJSON(req, analyzeRequest)), model: VISION_MODEL });
         case '/api/ai/plan':
           return send(res, 200, { result: await generatePlan(await readJSON(req, planRequest)), model: MODEL });
         case '/api/ai/chat':
@@ -131,18 +130,11 @@ const server = createServer(async (req, res) => {
     return send(res, 404, { error: 'Em desenvolvimento, acesse o front-end pelo Vite (http://localhost:5173).' });
   } catch (err) {
     if (err instanceof HttpError) return send(res, err.status, { error: err.message });
-    if (err instanceof Anthropic.AuthenticationError) return send(res, 503, { error: 'Chave da IA inválida no servidor.' });
-    if (err instanceof Anthropic.RateLimitError) return send(res, 429, { error: 'Limite do serviço de IA atingido. Tente novamente em instantes.' });
-    if (err instanceof Anthropic.APIConnectionError) return send(res, 502, { error: 'Não foi possível conectar ao serviço de IA.' });
-    if (err instanceof Anthropic.APIError) {
-      console.error('[ai] erro da API:', err.status, err.message);
-      return send(res, 502, { error: 'O serviço de IA retornou um erro. Tente novamente.' });
-    }
     console.error('[server] erro inesperado:', err);
     return send(res, 500, { error: 'Erro interno do servidor.' });
   }
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Nutricionist AI — API em http://localhost:${PORT} (IA ${aiConfigured() ? `ativa: ${MODEL}` : 'NÃO configurada'})`);
+  console.log(`Nutricionist AI — API em http://localhost:${PORT} (IA ${aiConfigured() ? `ativa via ${PROVIDER}: ${MODEL}${VISION_MODEL !== MODEL ? ` / fotos: ${VISION_MODEL}` : ''}` : 'NÃO configurada'})`);
 });

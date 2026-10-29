@@ -188,7 +188,7 @@ export function RegisterPage() {
           </label>
           <label className="check">
             <input type="checkbox" checked={aiProcessing} onChange={(e) => setAiProcessing(e.target.checked)} />
-            <span>Autorizo enviar fotos de refeições, perguntas do chat e dados do perfil ao serviço de IA (Anthropic) <strong>somente quando eu usar</strong> os recursos de IA. <em>(opcional — pode mudar depois)</em></span>
+            <span>Autorizo enviar fotos de refeições, perguntas do chat e dados do perfil ao serviço de IA (OpenRouter e o provedor do modelo) <strong>somente quando eu usar</strong> os recursos de IA. <em>(opcional — pode mudar depois)</em></span>
           </label>
           {touched && errs.consent ? <span className="field-error">{errs.consent}</span> : null}
           <Link to="/termos" className="tiny">Ler a política de privacidade</Link>

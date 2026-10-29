@@ -31,7 +31,7 @@ Plataforma **educativa** de nutrição com inteligência artificial, em portugu�
 ```
 server/                 Backend intermediário (Node) — guarda a chave da IA, nunca o navegador
   index.ts              HTTP: /api/health, /api/ai/analyze-image, /api/ai/plan, /api/ai/chat; serve dist/ em produção
-  ai.ts                 Integração com Claude (Anthropic SDK): prompts com regras de segurança, JSON Schema + validação Zod
+  ai.ts                 Integração com a OpenRouter: prompts com regras de segurança, JSON Schema + validação Zod
 src/
   db/                   Persistência (IndexedDB via idb)
     types.ts            Entidades
@@ -77,7 +77,7 @@ Requisitos: **Node.js 20+** (testado com 22).
 
 ```bash
 npm install
-cp .env.example .env      # opcional: preencha ANTHROPIC_API_KEY para ativar a IA
+cp .env.example .env      # opcional: preencha OPENROUTER_API_KEY para ativar a IA
 npm run dev               # front-end (Vite, http://localhost:5173) + API (http://localhost:8787)
 ```
 
@@ -90,13 +90,19 @@ npm start                 # http://localhost:8787
 
 Sem a chave, o app funciona normalmente — contas, questionário, plano por regras locais, diário, receitas, compras, progresso, hábitos, lembretes, exportação — e as telas de IA informam que ela não está configurada. **Nenhuma resposta de IA é simulada.**
 
-### Configurar a IA
+### Configurar a IA (OpenRouter)
 
-1. Crie uma chave em <https://console.anthropic.com/> e coloque em `.env`: `ANTHROPIC_API_KEY=...`
-2. (Opcional) `ANTHROPIC_MODEL` — padrão `claude-opus-5-5`.
-3. Reinicie o servidor. `GET /api/health` deve retornar `"ai": true`.
+A IA é acessada pela **[OpenRouter](https://openrouter.ai)**, que dá acesso a vários modelos (Claude, GPT, Gemini…) com uma única chave.
 
-A chave fica **apenas no servidor** (`server/`), nunca no código do navegador. O servidor valida as requisições, limita tamanho e frequência (30/min por IP), não armazena fotos nem conversas e usa *server-side fallback* da API em caso de recusa. Em hospedagem, rode o servidor atrás de HTTPS; se o front-end estiver em outro domínio, defina `ALLOWED_ORIGIN`.
+1. Crie uma conta, adicione créditos e gere uma chave em <https://openrouter.ai/keys>.
+2. No arquivo `.env` do servidor: `OPENROUTER_API_KEY=sk-or-...`
+3. (Opcional) Escolha o modelo em `OPENROUTER_MODEL` — padrão `anthropic/claude-opus-5.5`. Ele **precisa aceitar imagens** para a análise de fotos; modelos com suporte a *structured outputs* (JSON Schema) dão respostas mais confiáveis. Exemplos: `anthropic/claude-sonnet-5.5` (mais barato), `google/gemini-3.5-flash`, `openai/gpt-5.5`. Veja a lista em <https://openrouter.ai/models>.
+4. (Opcional) `OPENROUTER_VISION_MODEL` para usar um modelo diferente só nas fotos.
+5. Reinicie o servidor. `GET /api/health` deve retornar `"ai": true, "provider": "OpenRouter"`.
+
+A chave fica **apenas no servidor** (`server/`), nunca no navegador nem dentro do APK. O servidor valida as requisições, limita tamanho e frequência (30/min por IP), não armazena fotos nem conversas e traduz os erros da OpenRouter (chave inválida, créditos insuficientes, limite de uso, modelo indisponível) em mensagens claras. Em hospedagem, rode o servidor atrás de HTTPS; se o front-end estiver em outro domínio, defina `ALLOWED_ORIGIN`.
+
+**Privacidade:** ao usar a IA, a foto/mensagem passa pela OpenRouter e pelo provedor do modelo escolhido. Nas configurações de privacidade da sua conta OpenRouter você pode restringir provedores que retêm ou usam dados para treinamento.
 
 ## App Android (.apk)
 
@@ -156,7 +162,7 @@ npm run typecheck
 - **Criptografia em repouso**: apenas senhas e códigos são protegidos (hash). Os demais dados ficam legíveis para quem tiver acesso ao perfil do navegador. Limpar os dados do site apaga tudo — exporte periodicamente.
 - **Lembretes**: no navegador, só disparam com o app aberto (aba ou PWA); no **app Android** são agendados no sistema e funcionam com o app fechado.
 - **Análise por foto** é estimativa: peso, óleo, ingredientes ocultos e marcas não podem ser determinados com precisão por imagem. A marca só é sugerida com evidência visível e deve ser confirmada pelo rótulo.
-- A integração com a IA foi validada contra um **mock** local da API (formato da requisição, schema e tratamento de erros); com uma chave real, faça um teste de ponta a ponta antes de publicar.
+- A integração com a OpenRouter é coberta por testes automatizados contra um **servidor simulado** (formato da requisição, imagem, JSON Schema, validação e erros); com uma chave real, faça um teste de ponta a ponta antes de publicar.
 - O conteúdo do servidor intermediário não é autenticado: em produção, adicione autenticação e/ou limites por usuário para evitar uso indevido da sua chave.
 
 ## Licenças e atribuições
