@@ -93,7 +93,7 @@ export function ChatPage() {
 
       {status && !status.configured ? (
         <Alert kind="warning" title="IA indisponível">
-          {!status.online ? 'Você está offline.' : !status.serverReachable ? 'O servidor de IA não está em execução.' : 'O servidor não tem a chave da IA configurada (ANTHROPIC_API_KEY).'} O histórico continua disponível para consulta.
+          {!status.online ? 'Você está offline.' : status.needsServerUrl ? 'Informe o endereço do servidor de IA em Perfil e configurações.' : !status.serverReachable ? 'O servidor de IA não está em execução.' : 'O servidor não tem a chave da IA configurada (ANTHROPIC_API_KEY).'} O histórico continua disponível para consulta.
         </Alert>
       ) : null}
       {!consent?.aiProcessing ? (
@@ -148,7 +148,7 @@ export function ChatPage() {
         )}
       </div>
 
-      <form className="row" onSubmit={submit} style={{ position: 'sticky', bottom: 84 }}>
+      <form className="row chat-form" onSubmit={submit} style={{ position: 'sticky', bottom: 16 }}>
         <input className="input" value={text} maxLength={4000} onChange={(e) => setText(e.target.value)} placeholder={canSend ? 'Escreva sua pergunta…' : 'IA indisponível no momento'} disabled={!canSend || sending} aria-label="Mensagem" />
         <Button type="submit" variant="primary" size="icon" disabled={!canSend || !text.trim()} loading={sending} aria-label="Enviar"><Send size={18} /></Button>
       </form>

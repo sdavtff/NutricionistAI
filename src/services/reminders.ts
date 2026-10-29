@@ -1,6 +1,9 @@
-// Lembretes locais via Notification API. LIMITAÇÃO: sem um servidor de push, os lembretes só disparam
-// enquanto o app estiver aberto (em uma aba ou instalado como aplicativo). Isso é informado na tela.
+// Lembretes locais.
+// - App Android (Capacitor): agendados no sistema via Local Notifications — chegam com o app fechado.
+// - Navegador: Notification API; sem servidor de push, só disparam com o app aberto (informado na tela).
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { listReminders, saveReminder, uid } from '../db/repo';
+import { isNative } from '../lib/platform';
 import type { Reminder, ReminderKind } from '../db/types';
 import { nowTime } from '../lib/date';
 
@@ -35,14 +38,64 @@ export async function ensureReminders(userId: string): Promise<Reminder[]> {
   return existing.sort((a, b) => REMINDER_DEFAULTS.findIndex((d) => d.kind === a.kind) - REMINDER_DEFAULTS.findIndex((d) => d.kind === b.kind));
 }
 
-export function notificationSupport(): 'unsupported' | NotificationPermission {
+export type NotifPermission = 'unsupported' | NotificationPermission;
+
+export function notificationSupport(): NotifPermission {
   if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
   return Notification.permission;
 }
 
-export async function requestNotificationPermission(): Promise<'unsupported' | NotificationPermission> {
+function mapNative(p: string): NotifPermission {
+  return p === 'granted' ? 'granted' : p === 'denied' ? 'denied' : 'default';
+}
+
+export async function notificationPermission(): Promise<NotifPermission> {
+  if (isNative()) return mapNative((await LocalNotifications.checkPermissions()).display);
+  return notificationSupport();
+}
+
+export async function requestNotificationPermission(): Promise<NotifPermission> {
+  if (isNative()) return mapNative((await LocalNotifications.requestPermissions()).display);
   if (notificationSupport() === 'unsupported') return 'unsupported';
   return Notification.requestPermission();
+}
+
+/** Horários (HH:MM) em que o lembrete dispara, expandindo intervalos dentro da janela. */
+export function reminderTimes(r: Reminder): string[] {
+  if (r.intervalMin && r.windowStart && r.windowEnd) {
+    const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+    const out: string[] = [];
+    for (let m = toMin(r.windowStart); m <= toMin(r.windowEnd); m += r.intervalMin) {
+      out.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+    }
+    return out;
+  }
+  return [...new Set(r.times)].filter((t) => /^\d{2}:\d{2}$/.test(t));
+}
+
+/** Reagenda no Android todos os lembretes ativos (repetição semanal por dia/horário). */
+export async function syncNativeReminders(userId: string) {
+  if (!isNative()) return;
+  const pending = await LocalNotifications.getPending();
+  if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
+  if ((await notificationPermission()) !== 'granted') return;
+  const reminders = (await listReminders(userId)).filter((r) => r.enabled);
+  const notifications = [];
+  let id = 1;
+  for (const r of reminders) {
+    for (const day of r.days) {
+      for (const t of reminderTimes(r)) {
+        notifications.push({
+          id: id++,
+          title: 'Nutricionist AI',
+          body: MESSAGES[r.kind],
+          // weekday no Capacitor: 1 = domingo ... 7 = sábado
+          schedule: { on: { weekday: day + 1, hour: Number(t.slice(0, 2)), minute: Number(t.slice(3, 5)) }, allowWhileIdle: true },
+        });
+      }
+    }
+  }
+  if (notifications.length) await LocalNotifications.schedule({ notifications: notifications.slice(0, 400) });
 }
 
 /** Decide se o lembrete deve disparar agora (função pura, testável). */
@@ -71,6 +124,10 @@ let timer: ReturnType<typeof setInterval> | null = null;
 
 export function startReminderLoop(userId: string) {
   stopReminderLoop();
+  if (isNative()) {
+    void syncNativeReminders(userId).catch(() => undefined);
+    return;
+  }
   const tick = async () => {
     if (notificationSupport() !== 'granted') return;
     const now = new Date();
@@ -91,5 +148,9 @@ export function stopReminderLoop() {
 }
 
 export async function testNotification() {
+  if (isNative()) {
+    await LocalNotifications.schedule({ notifications: [{ id: 999999, title: 'Nutricionist AI', body: 'Notificações ativadas! Este é um teste.', schedule: { at: new Date(Date.now() + 1500) } }] });
+    return;
+  }
   await show('Nutricionist AI', 'Notificações ativadas! Este é um teste.');
 }

@@ -1,4 +1,4 @@
-import { Bell, ClipboardEdit, LogOut, Moon, Palette, User as UserIcon } from 'lucide-react';
+import { Bell, ClipboardEdit, LogOut, Moon, Palette, Server, User as UserIcon } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Alert, Button, Field, Segmented, TextInput } from '../components/ui';
@@ -7,7 +7,9 @@ import { useToast } from '../context/ToastContext';
 import { saveReminder } from '../db/repo';
 import type { Reminder } from '../db/types';
 import { AuthError, changePassword, updateProfile } from '../services/auth';
-import { ensureReminders, notificationSupport, requestNotificationPermission, testNotification } from '../services/reminders';
+import { ensureReminders, notificationPermission, requestNotificationPermission, syncNativeReminders, testNotification, type NotifPermission } from '../services/reminders';
+import { getApiBase, isNative, setApiBase, validateApiBase } from '../lib/platform';
+import { getAIStatus } from '../services/ai';
 
 const DAY_LABELS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
@@ -21,9 +23,11 @@ export function SettingsPage() {
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
   const [pwErr, setPwErr] = useState<string | null>(null);
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [perm, setPerm] = useState(notificationSupport());
+  const [perm, setPerm] = useState<NotifPermission>('default');
+  const [apiBase, setApiBaseState] = useState(getApiBase());
+  const [apiMsg, setApiMsg] = useState<{ kind: 'success' | 'danger' | 'info'; text: string } | null>(null);
 
-  useEffect(() => { void ensureReminders(user.id).then(setReminders); }, [user.id]);
+  useEffect(() => { void ensureReminders(user.id).then(setReminders); void notificationPermission().then(setPerm); }, [user.id]);
 
   async function saveProfile(e: FormEvent) {
     e.preventDefault();
@@ -57,6 +61,7 @@ export function SettingsPage() {
     }
     await saveReminder(r);
     setReminders((rs) => rs.map((x) => (x.id === r.id ? r : x)));
+    await syncNativeReminders(user.id).catch(() => toast('Não foi possível agendar no sistema.', 'error'));
   }
 
   if (!settings) return null;
@@ -92,14 +97,42 @@ export function SettingsPage() {
       </div>
 
       <div className="card stack">
+        <div className="row"><Server color="var(--primary)" /><h2>Servidor de IA</h2></div>
+        <p className="small muted">
+          {isNative()
+            ? 'O app Android precisa saber onde está o servidor intermediário do Nutricionist AI (que guarda a chave da IA). Sem ele, tudo funciona, exceto análise de foto por IA, plano com IA e chat.'
+            : 'No navegador, o app usa o servidor da mesma origem. Preencha apenas se o servidor estiver em outro endereço.'}
+        </p>
+        <TextInput label="Endereço do servidor" placeholder="https://meu-servidor.com" value={apiBase} onChange={(e) => setApiBaseState(e.target.value)} inputMode="url" autoComplete="url" />
+        <div className="row-wrap">
+          <Button variant="primary" onClick={async () => {
+            const err = validateApiBase(apiBase);
+            if (err) return setApiMsg({ kind: 'danger', text: err });
+            setApiBase(apiBase);
+            setApiMsg({ kind: 'info', text: 'Testando conexão…' });
+            const st = await getAIStatus();
+            setApiMsg(st.configured ? { kind: 'success', text: `Conectado. IA ativa (${st.model}).` }
+              : st.serverReachable ? { kind: 'danger', text: 'Servidor encontrado, mas sem a chave da IA configurada.' }
+              : st.needsServerUrl ? { kind: 'info', text: 'Endereço removido.' }
+              : { kind: 'danger', text: 'Não foi possível conectar. Verifique o endereço, a internet e se o servidor permite este app (CORS).' });
+          }}>Salvar e testar</Button>
+        </div>
+        {apiMsg ? <Alert kind={apiMsg.kind}>{apiMsg.text}</Alert> : null}
+      </div>
+
+      <div className="card stack">
         <div className="row"><Bell color="var(--primary)" /><h2>Lembretes</h2></div>
-        <Alert kind="info">
-          Os lembretes usam as notificações do navegador e <strong>só funcionam enquanto o app estiver aberto</strong> (em uma aba ou instalado).
-          Notificações com o app fechado exigiriam um servidor de push, que não faz parte desta versão.
-        </Alert>
+        {isNative() ? (
+          <Alert kind="info">No app Android, os lembretes são agendados no próprio sistema e chegam <strong>mesmo com o app fechado</strong>. Em alguns aparelhos, a economia de bateria pode atrasá-los.</Alert>
+        ) : (
+          <Alert kind="info">
+            No navegador, os lembretes <strong>só funcionam enquanto o app estiver aberto</strong> (em uma aba ou instalado).
+            Notificações com o app fechado estão disponíveis no app Android.
+          </Alert>
+        )}
         <div className="row-wrap small">
           <span>Permissão: <strong>{perm === 'granted' ? 'concedida' : perm === 'denied' ? 'negada (altere nas configurações do navegador)' : perm === 'unsupported' ? 'não suportada neste navegador' : 'ainda não solicitada'}</strong></span>
-          {perm === 'default' ? <Button size="sm" variant="soft" onClick={async () => setPerm(await requestNotificationPermission())}>Permitir notificações</Button> : null}
+          {perm === 'default' ? <Button size="sm" variant="soft" onClick={async () => { const p = await requestNotificationPermission(); setPerm(p); if (p === 'granted') await syncNativeReminders(user.id); }}>Permitir notificações</Button> : null}
           {perm === 'granted' ? <Button size="sm" onClick={() => testNotification()}>Enviar teste</Button> : null}
         </div>
         {reminders.map((r) => (

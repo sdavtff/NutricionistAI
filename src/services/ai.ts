@@ -1,5 +1,6 @@
 // Cliente do front-end para o servidor de IA. Nunca contém chaves: tudo passa pelo backend (/api).
 import type { AIIdentifiedItem, NutritionPlan, PlanMeal } from '../db/types';
+import { apiConfigured, apiUrl } from '../lib/platform';
 
 export class AIError extends Error {
   constructor(message: string, public status = 0) {
@@ -12,13 +13,16 @@ export interface AIStatus {
   serverReachable: boolean;
   configured: boolean;
   model: string | null;
+  /** App nativo sem URL do servidor informada. */
+  needsServerUrl?: boolean;
 }
 
 export async function getAIStatus(): Promise<AIStatus> {
   const online = typeof navigator === 'undefined' ? true : navigator.onLine;
   if (!online) return { online, serverReachable: false, configured: false, model: null };
+  if (!apiConfigured()) return { online, serverReachable: false, configured: false, model: null, needsServerUrl: true };
   try {
-    const res = await fetch('/api/health', { cache: 'no-store' });
+    const res = await fetch(apiUrl('/api/health'), { cache: 'no-store' });
     if (!res.ok) return { online, serverReachable: false, configured: false, model: null };
     const data = (await res.json()) as { ai: boolean; model: string | null };
     return { online, serverReachable: true, configured: data.ai, model: data.model };
@@ -32,7 +36,8 @@ async function post<T>(path: string, body: unknown, timeoutMs = 120_000): Promis
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(path, {
+    if (!apiConfigured()) throw new AIError('Informe o endereço do servidor de IA em Perfil e configurações.');
+    const res = await fetch(apiUrl(path), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -44,7 +49,7 @@ async function post<T>(path: string, body: unknown, timeoutMs = 120_000): Promis
   } catch (e) {
     if (e instanceof AIError) throw e;
     if ((e as Error).name === 'AbortError') throw new AIError('A IA demorou demais para responder. Tente novamente.');
-    throw new AIError('Não foi possível falar com o servidor de IA. Verifique se ele está em execução (npm run dev).');
+    throw new AIError('Não foi possível falar com o servidor de IA. Verifique se ele está em execução e se o endereço está correto.');
   } finally {
     clearTimeout(t);
   }

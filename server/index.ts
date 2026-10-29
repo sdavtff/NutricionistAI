@@ -20,6 +20,13 @@ const PORT = Number(process.env.PORT) || 8787;
 const PROD = process.env.NODE_ENV === 'production';
 const DIST = resolve('dist');
 const MAX_BODY = 10 * 1024 * 1024;
+// Origens autorizadas (CORS): o app Android (Capacitor) roda em https://localhost.
+// Acrescente outras em ALLOWED_ORIGIN, separadas por vírgula.
+const ALLOWED_ORIGINS = new Set([
+  'https://localhost',
+  'capacitor://localhost',
+  ...(process.env.ALLOWED_ORIGIN ?? '').split(',').map((o) => o.trim()).filter(Boolean),
+]);
 
 // Limite simples de requisições por IP (em memória).
 const hits = new Map<string, { count: number; reset: number }>();
@@ -90,9 +97,10 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse) {
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://x');
-  const allowed = process.env.ALLOWED_ORIGIN;
-  if (allowed && req.headers.origin === allowed) {
-    res.setHeader('Access-Control-Allow-Origin', allowed);
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
   }
@@ -135,6 +143,6 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Nutricionist AI — API em http://localhost:${PORT} (IA ${aiConfigured() ? `ativa: ${MODEL}` : 'NÃO configurada'})`);
 });

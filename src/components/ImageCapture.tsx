@@ -1,6 +1,8 @@
 import { Camera, Crop, ImagePlus, RotateCcw, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { CropRect } from '../lib/image';
+import { isNative } from '../lib/platform';
+import { nativePhoto } from '../services/native';
 import { Alert, Button, Modal } from './ui';
 
 /** Câmera ao vivo (getUserMedia) com fallback para o seletor nativo do celular. */
@@ -109,10 +111,28 @@ function clamp(v: number, min: number, max: number) {
   return Math.min(max, Math.max(min, v));
 }
 
-export function PickButtons({ onFile, onCamera }: { onFile: (f: File) => void; onCamera: () => void }) {
+export function PickButtons({ onFile, onCamera, onError }: { onFile: (f: Blob) => void; onCamera: () => void; onError?: (msg: string) => void }) {
   const gallery = useRef<HTMLInputElement>(null);
   const native = useRef<HTMLInputElement>(null);
   const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+
+  async function fromApp(source: 'camera' | 'galeria') {
+    try {
+      const blob = await nativePhoto(source);
+      if (blob) onFile(blob);
+    } catch (e) {
+      onError?.((e as Error).message);
+    }
+  }
+
+  if (isNative()) {
+    return (
+      <div className="row-wrap" style={{ justifyContent: 'center' }}>
+        <Button variant="primary" onClick={() => fromApp('camera')}><Camera size={20} />Tirar foto</Button>
+        <Button onClick={() => fromApp('galeria')}><ImagePlus size={20} />Escolher da galeria</Button>
+      </div>
+    );
+  }
   return (
     <div className="row-wrap" style={{ justifyContent: 'center' }}>
       <Button variant="primary" onClick={() => (isTouch ? native.current?.click() : onCamera())}><Camera size={20} />Tirar foto</Button>

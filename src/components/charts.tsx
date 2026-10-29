@@ -45,7 +45,7 @@ export function Donut({ parts, size = 120, label }: { parts: { value: number; co
 }
 
 export function MacroBar({ label, value, max, unit = 'g', color, hideMax }: { label: string; value: number | null; max?: number | null; unit?: string; color: string; hideMax?: boolean }) {
-  const pct = max && value !== null ? Math.min(100, (value / max) * 100) : value !== null ? 100 : 0;
+  const pct = max && value ? Math.min(100, (value / max) * 100) : 0;
   return (
     <div className="macro-row">
       <span className="row" style={{ gap: 8 }}><span className="dot" style={{ background: color }} />{label}</span>

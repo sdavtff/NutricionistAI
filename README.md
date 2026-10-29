@@ -98,6 +98,39 @@ Sem a chave, o app funciona normalmente — contas, questionário, plano por reg
 
 A chave fica **apenas no servidor** (`server/`), nunca no código do navegador. O servidor valida as requisições, limita tamanho e frequência (30/min por IP), não armazena fotos nem conversas e usa *server-side fallback* da API em caso de recusa. Em hospedagem, rode o servidor atrás de HTTPS; se o front-end estiver em outro domínio, defina `ALLOWED_ORIGIN`.
 
+## App Android (.apk)
+
+O app Android usa **Capacitor**: é o mesmo app web, empacotado em um WebView nativo, com recursos nativos onde o navegador é limitado:
+
+- **Câmera e galeria nativas** (`@capacitor/camera`) no analisador de fotos.
+- **Lembretes agendados no sistema** (`@capacitor/local-notifications`): chegam **mesmo com o app fechado**.
+- **Exportação de dados** pelo menu de compartilhamento do Android (`@capacitor/filesystem` + `@capacitor/share`).
+- **Botão voltar** do Android (fecha diálogos, depois volta de tela, depois sai), barra de status no tema do app, splash e ícone próprios.
+- Banco de dados local (IndexedDB) no armazenamento privado do app.
+
+### Gerar o APK
+
+Requisitos: Node 20+, **JDK 21** e **Android SDK** (plataforma 36). Com o Android Studio instalado, basta:
+
+```bash
+npm install
+npm run apk        # build web + cap sync + gradlew assembleDebug
+# APK em android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Ou abra a pasta `android/` no Android Studio (`npx cap open android`). O workflow `.github/workflows/android.yml` também gera o APK no GitHub Actions (aba Actions → “APK Android” → artefato).
+
+O APK gerado assim é assinado com a **chave de depuração** — serve para instalar e testar (habilite “instalar apps de fontes desconhecidas”). Para publicar na Play Store, gere um **AAB de release assinado com sua própria chave** (Android Studio → Build → Generate Signed Bundle) e guarde a chave com segurança: sem ela não é possível publicar atualizações.
+
+### IA no app Android
+
+No APK, a página roda em `https://localhost`, então o app precisa do endereço do servidor intermediário (`server/`), que guarda a chave da IA. Em **Perfil e configurações → Servidor de IA**, informe a URL e toque em “Salvar e testar”:
+
+- **Produção**: hospede o servidor (`npm run build && npm start`) com HTTPS (ex.: Render, Railway, Fly.io, uma VPS) e use `https://seu-servidor`.
+- **Testes na rede local**: rode `npm start` no computador e informe `http://IP-DO-COMPUTADOR:8787` (celular e computador na mesma rede Wi-Fi).
+
+O servidor já aceita a origem do app Android (CORS para `https://localhost`). Também é possível embutir o endereço no build: `VITE_API_URL=https://seu-servidor npm run apk`.
+
 ## Testes
 
 ```bash
@@ -121,7 +154,7 @@ npm run typecheck
 
 - **Contas locais**: existem só naquele navegador/dispositivo. Recuperação por e-mail, login em vários dispositivos e sincronização **exigem um serviço externo** (ex.: Supabase Auth, Firebase Auth, Auth0 ou um backend próprio). O ponto de integração é `src/services/auth.ts`.
 - **Criptografia em repouso**: apenas senhas e códigos são protegidos (hash). Os demais dados ficam legíveis para quem tiver acesso ao perfil do navegador. Limpar os dados do site apaga tudo — exporte periodicamente.
-- **Lembretes** só disparam com o app aberto (aba ou PWA). Notificações com o app fechado exigem Web Push com servidor.
+- **Lembretes**: no navegador, só disparam com o app aberto (aba ou PWA); no **app Android** são agendados no sistema e funcionam com o app fechado.
 - **Análise por foto** é estimativa: peso, óleo, ingredientes ocultos e marcas não podem ser determinados com precisão por imagem. A marca só é sugerida com evidência visível e deve ser confirmada pelo rótulo.
 - A integração com a IA foi validada contra um **mock** local da API (formato da requisição, schema e tratamento de erros); com uma chave real, faça um teste de ponta a ponta antes de publicar.
 - O conteúdo do servidor intermediário não é autenticado: em produção, adicione autenticação e/ou limites por usuário para evitar uso indevido da sua chave.

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { getConsent, getQuestionnaire, getSettings, saveSettings } from '../db/repo';
 import type { Consent, Questionnaire, Settings, User } from '../db/types';
 import { currentUser, logout as doLogout } from '../services/auth';
+import { applyNativeTheme, initNative } from '../services/native';
 import { startReminderLoop, stopReminderLoop } from '../services/reminders';
 
 interface AppState {
@@ -23,6 +24,7 @@ function applyTheme(theme: Settings['theme'] | undefined) {
   const dark = theme === 'escuro' || (theme !== 'claro' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0c1511' : '#14513c');
+  void applyNativeTheme(dark);
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -54,6 +56,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [load]);
 
   useEffect(() => {
+    initNative();
     refresh()
       .catch((e) => console.error('Falha ao abrir o banco local', e))
       .finally(() => setLoading(false));

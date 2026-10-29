@@ -46,6 +46,12 @@ export function Layout() {
   const [more, setMore] = useState(false);
   const loc = useLocation();
   const online = useOnline();
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const fn = () => setScrolled(window.scrollY > 4);
+    window.addEventListener('scroll', fn, { passive: true });
+    return () => window.removeEventListener('scroll', fn);
+  }, []);
   useEffect(() => {
     setMore(false);
     window.scrollTo(0, 0);
@@ -78,6 +84,10 @@ export function Layout() {
       </aside>
 
       <main className="main" id="conteudo">
+        <header className={`topbar${scrolled ? ' scrolled' : ''}`}>
+          <NavLink to="/" style={{ textDecoration: 'none' }} aria-label="Início"><Brand small /></NavLink>
+          <NavLink to="/perfil" className="avatar" aria-label="Perfil e configurações">{(user?.name ?? '?').trim().charAt(0).toUpperCase()}</NavLink>
+        </header>
         {!online ? (
           <div className="alert warning" style={{ borderRadius: 0, justifyContent: 'center' }} role="status">
             <WifiOff size={18} /> <span className="alert-body small">Você está offline. Diário, histórico e receitas continuam funcionando; a IA e a consulta de rótulos precisam de internet.</span>

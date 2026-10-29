@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Info, Leaf, X, XCircle } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import { getImage } from '../db/repo';
+import { pushBackHandler } from '../services/native';
 
 export function Spinner({ label = 'Carregando' }: { label?: string }) {
   return <span className="spinner" role="status" aria-label={label} />;
@@ -76,10 +77,12 @@ export function Modal({ open, onClose, title, children, footer }: { open: boolea
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
+    const popBack = pushBackHandler(onClose);
     setTimeout(() => ref.current?.querySelector<HTMLElement>('input, select, textarea, button:not([aria-label="Fechar"])')?.focus(), 30);
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
+      popBack();
       prev?.focus?.();
     };
   }, [open, onClose]);

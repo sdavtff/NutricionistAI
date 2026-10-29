@@ -254,7 +254,7 @@ export function AnalyzePage() {
             <div className="brand-mark" style={{ width: 76, height: 76, borderRadius: 24, margin: '0 auto' }}><ScanSearch size={38} /></div>
             <h2>Como está o seu prato hoje?</h2>
             <p className="muted small" style={{ maxWidth: 460, margin: '0 auto' }}>Tire uma foto de cima, com boa iluminação. Você poderá recortar, informar a porção e corrigir o que a IA identificar.</p>
-            <PickButtons onFile={(f) => void onFile(f)} onCamera={() => setCamera(true)} />
+            <PickButtons onFile={(f) => void onFile(f)} onCamera={() => setCamera(true)} onError={setError} />
             <p className="tiny muted">Ou arraste uma imagem para cá.</p>
           </div>
           <AIStatusNotice status={status} consentAI={!!consent?.aiProcessing} onEnable={() => setConsentModal(true)} />
@@ -453,6 +453,7 @@ export function AnalyzePage() {
 function AIStatusNotice({ status, consentAI, onEnable }: { status: AIStatus | null; consentAI: boolean; onEnable: () => void }) {
   if (!status) return null;
   if (!status.online) return <Alert kind="warning" title="Você está offline">A análise por IA exige internet. Você ainda pode registrar refeições manualmente no diário.</Alert>;
+  if (status.needsServerUrl) return <Alert kind="info" title="Configure o servidor de IA">No app Android, informe o endereço do servidor de IA em <Link to="/perfil">Perfil e configurações</Link>. Enquanto isso, o registro manual com foto funciona normalmente.</Alert>;
   if (!status.serverReachable) return <Alert kind="warning" title="Servidor de IA indisponível">O servidor intermediário não respondeu. Rode <code>npm run dev</code> (ou <code>npm start</code>) — veja o README. Registro manual continua disponível.</Alert>;
   if (!status.configured) return <Alert kind="info" title="IA não configurada">Defina <code>ANTHROPIC_API_KEY</code> no arquivo <code>.env</code> do servidor para ativar a análise por foto. Até lá, use o registro manual com foto.</Alert>;
   if (!consentAI) return <Alert kind="info" title="IA disponível, aguardando sua autorização">Você ainda não autorizou o envio de fotos ao serviço de IA. <button className="btn btn-sm btn-soft" style={{ marginLeft: 6 }} onClick={onEnable}>Autorizar</button></Alert>;

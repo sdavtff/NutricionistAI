@@ -116,3 +116,12 @@ describe('lembretes', () => {
     expect(isDue(w, new Date(2026, 9, 20, 6, 30))).toBe(false);
   });
 });
+
+describe('agendamento nativo de lembretes', () => {
+  it('expande intervalos dentro da janela e remove horários duplicados', async () => {
+    const { reminderTimes } = await import('../src/services/reminders');
+    const base = { id: '1', userId: 'u', kind: 'agua' as const, label: 'x', enabled: true, days: [1] };
+    expect(reminderTimes({ ...base, times: [], intervalMin: 90, windowStart: '08:00', windowEnd: '12:00' })).toEqual(['08:00', '09:30', '11:00']);
+    expect(reminderTimes({ ...base, times: ['12:30', '12:30', 'xx'] })).toEqual(['12:30']);
+  });
+});

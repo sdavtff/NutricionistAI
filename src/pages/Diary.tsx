@@ -49,7 +49,7 @@ export function DiaryPage() {
           <h1>Diário alimentar</h1>
           <p>{formatDateLong(date).replace(/^./, (c) => c.toUpperCase())}{date === todayISO() ? ' · hoje' : ''}</p>
         </div>
-        <div className="row">
+        <div className="row diary-date">
           <Button size="icon" aria-label="Dia anterior" onClick={() => go(addDays(date, -1))}><ChevronLeft size={20} /></Button>
           <input type="date" className="input" style={{ width: 170 }} value={date} max={todayISO()} aria-label="Escolher data" onChange={(e) => e.target.value && go(e.target.value)} />
           <Button size="icon" aria-label="Próximo dia" disabled={date >= todayISO()} onClick={() => go(addDays(date, 1))}><ChevronRight size={20} /></Button>
@@ -88,7 +88,7 @@ export function DiaryPage() {
             {list.length ? list.map((m) => {
               const mt = sumItems(m.items).values;
               return (
-                <div key={m.id} className="list-item">
+                <div key={m.id} className="list-item meal-row">
                   <button type="button" className="row grow" style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', textAlign: 'left', minWidth: 0 }} onClick={() => setDetails(m)}>
                     <div className="thumb"><StoredImg id={m.imageId} alt={m.name} fallback={<Utensils size={20} />} /></div>
                     <div className="grow" style={{ minWidth: 0 }}>
@@ -97,7 +97,7 @@ export function DiaryPage() {
                       <div className="tiny">{hideCal ? '' : `${fmt(mt.kcal, 0)} kcal · `}P {fmt(mt.protein)} g · C {fmt(mt.carbs)} g · G {fmt(mt.fat)} g</div>
                     </div>
                   </button>
-                  <div className="row" style={{ gap: 2 }}>
+                  <div className="row meal-actions" style={{ gap: 2 }}>
                     <Button size="icon" variant="ghost" aria-label={`Editar ${m.name}`} onClick={() => setEditing(m)}><Pencil size={18} /></Button>
                     <Button size="icon" variant="ghost" aria-label={`Duplicar ${m.name}`} onClick={() => { setDup(m); setDupDate(todayISO()); }}><Copy size={18} /></Button>
                     <Button size="icon" variant="ghost" aria-label={`Excluir ${m.name}`} onClick={async () => {

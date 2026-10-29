@@ -9,6 +9,8 @@ import { clearChats, countUserRecords, deleteAllImages, deleteAllUserData, expor
 import { hashPassword, safeEqual } from '../lib/crypto';
 import { fmtBytes } from '../lib/format';
 import { logout } from '../services/auth';
+import { isNative } from '../lib/platform';
+import { shareTextFile } from '../services/native';
 
 export function PrivacyPolicy() {
   return (
@@ -76,7 +78,9 @@ export function PrivacyPage() {
     setExporting(true);
     try {
       const data = await exportUserData(user.id, images);
-      download(`nutricionist-ai-dados-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2));
+      const name = `nutricionist-ai-dados-${new Date().toISOString().slice(0, 10)}.json`;
+      if (isNative()) await shareTextFile(name, JSON.stringify(data, null, 2));
+      else download(name, JSON.stringify(data, null, 2));
       toast('Exportação concluída.');
     } catch {
       toast('Falha ao exportar.', 'error');

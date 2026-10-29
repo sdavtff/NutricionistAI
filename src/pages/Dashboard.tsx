@@ -47,6 +47,7 @@ export function DashboardPage() {
   const target = range && !hideCal ? (range.min + range.max) / 2 : null;
   const prot = proteinRange(a);
   const split = macroSplit(t);
+  const macroMax = Math.max(t.protein ?? 0, t.carbs ?? 0, t.fat ?? 0, prot?.min ?? 0) || null;
   const waterGoal = settings?.waterGoalMl || waterGoalMl(a);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
@@ -88,7 +89,7 @@ export function DashboardPage() {
           <h1>{greeting()}, {user.name.split(' ')[0]} 👋</h1>
           <p>{fromISODate(today).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         </div>
-        <Link to="/analisar" className="btn btn-primary"><Camera size={18} />Analisar comida</Link>
+        <Link to="/analisar" className="btn btn-primary hide-mobile"><Camera size={18} />Analisar comida</Link>
       </div>
 
       {!questionnaire?.completed ? (
@@ -107,8 +108,8 @@ export function DashboardPage() {
             </Ring>
             <div className="stack-sm" style={{ flex: 1, minWidth: 200 }}>
               <MacroBar label="Proteínas" value={t.protein ?? 0} max={prot ? prot.min : null} color="var(--c-protein)" />
-              <MacroBar label="Carboidratos" value={t.carbs ?? 0} color="var(--c-carbs)" max={null} />
-              <MacroBar label="Gorduras" value={t.fat ?? 0} color="var(--c-fat)" max={null} />
+              <MacroBar label="Carboidratos" value={t.carbs ?? 0} color="var(--c-carbs)" max={macroMax} hideMax />
+              <MacroBar label="Gorduras" value={t.fat ?? 0} color="var(--c-fat)" max={macroMax} hideMax />
               <MacroBar label="Fibras" value={t.fiber ?? 0} max={25} color="var(--c-fiber)" />
               {t.sodium !== null ? <p className="tiny muted">Sódio: {fmt(t.sodium, 0)} mg (referência: até 2.000 mg/dia)</p> : null}
             </div>
