@@ -3,6 +3,7 @@ import { getConsent, getQuestionnaire, getSettings, saveSettings } from '../db/r
 import type { Consent, Questionnaire, Settings, User } from '../db/types';
 import { currentUser, logout as doLogout } from '../services/auth';
 import { applyNativeTheme, initNative } from '../services/native';
+import { setDirectAIConfig } from '../services/ai';
 import { startReminderLoop, stopReminderLoop } from '../services/reminders';
 
 interface AppState {
@@ -19,6 +20,11 @@ interface AppState {
 }
 
 const Ctx = createContext<AppState | null>(null);
+
+/** Ativa o modo direto da OpenRouter quando há chave própria salva (antes de qualquer tela consultar a IA). */
+function applyAI(s: Settings | null) {
+  setDirectAIConfig(s?.openrouterKey ? { apiKey: s.openrouterKey, model: s.openrouterModel, visionModel: s.openrouterVisionModel } : null);
+}
 
 function applyTheme(theme: Settings['theme'] | undefined) {
   const dark = theme === 'escuro' || (theme !== 'claro' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
@@ -39,10 +45,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSettings(null);
       setConsent(null);
       setQuestionnaire(null);
+      applyAI(null);
       applyTheme(undefined);
       return;
     }
     const [s, c, q] = await Promise.all([getSettings(u.id), getConsent(u.id), getQuestionnaire(u.id)]);
+    applyAI(s);
     setSettings(s);
     setConsent(c ?? null);
     setQuestionnaire(q ?? null);
@@ -85,6 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!settings) return;
       const next = { ...settings, ...patch };
       await saveSettings(next);
+      applyAI(next);
       setSettings(next);
       applyTheme(next.theme);
     },

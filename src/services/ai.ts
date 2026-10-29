@@ -1,6 +1,30 @@
 // Cliente do front-end para o servidor de IA. Nunca contém chaves: tudo passa pelo backend (/api).
 import type { AIIdentifiedItem, NutritionPlan, PlanMeal } from '../db/types';
 import { apiConfigured, apiUrl } from '../lib/platform';
+import {
+  AIServiceError, analyzeImage as orAnalyze, chat as orChat, generatePlan as orPlan, modelOf, visionModelOf, type OpenRouterConfig,
+} from '../../shared/openrouter';
+
+// Modo direto: quando o usuário salva a própria chave da OpenRouter, o app chama a OpenRouter
+// diretamente (sem servidor). Sem chave, usa o servidor intermediário (/api).
+let direct: OpenRouterConfig | null = null;
+export function setDirectAIConfig(cfg: OpenRouterConfig | null) {
+  direct = cfg?.apiKey ? cfg : null;
+}
+export function directAIEnabled() {
+  return direct !== null;
+}
+
+async function viaDirect<T>(fn: (cfg: OpenRouterConfig) => Promise<T>): Promise<T> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new AIError('Você está offline. A IA precisa de conexão com a internet.');
+  try {
+    return await fn(direct!);
+  } catch (e) {
+    if (e instanceof AIServiceError) throw new AIError(e.message, e.status);
+    if (e instanceof AIError) throw e;
+    throw new AIError('Não foi possível falar com a OpenRouter. Verifique a internet.');
+  }
+}
 
 export class AIError extends Error {
   constructor(message: string, public status = 0) {
@@ -13,13 +37,16 @@ export interface AIStatus {
   serverReachable: boolean;
   configured: boolean;
   model: string | null;
-  /** App nativo sem URL do servidor informada. */
+  /** App nativo sem chave própria nem URL do servidor. */
   needsServerUrl?: boolean;
+  /** Usando a chave própria da OpenRouter salva no dispositivo. */
+  direct?: boolean;
 }
 
 export async function getAIStatus(): Promise<AIStatus> {
-  const online = typeof navigator === 'undefined' ? true : navigator.onLine;
+  const online = typeof navigator === 'undefined' || navigator.onLine !== false;
   if (!online) return { online, serverReachable: false, configured: false, model: null };
+  if (direct) return { online, serverReachable: true, configured: true, model: modelOf(direct), direct: true };
   if (!apiConfigured()) return { online, serverReachable: false, configured: false, model: null, needsServerUrl: true };
   try {
     const res = await fetch(apiUrl('/api/health'), { cache: 'no-store' });
@@ -32,11 +59,11 @@ export async function getAIStatus(): Promise<AIStatus> {
 }
 
 async function post<T>(path: string, body: unknown, timeoutMs = 120_000): Promise<T> {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) throw new AIError('Você está offline. A IA precisa de conexão com a internet.');
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new AIError('Você está offline. A IA precisa de conexão com a internet.');
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    if (!apiConfigured()) throw new AIError('Informe o endereço do servidor de IA em Perfil e configurações.');
+    if (!apiConfigured()) throw new AIError('Informe sua chave da OpenRouter (ou o endereço de um servidor) em Perfil e configurações.');
     const res = await fetch(apiUrl(path), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -72,7 +99,8 @@ export function analyzeFoodImage(body: {
   mediaType: 'image/jpeg';
   hints?: { portionText?: string; brand?: string; note?: string };
   catalog: { id: string; name: string }[];
-}) {
+}): Promise<AnalysisResponse> {
+  if (direct) return viaDirect(async (cfg) => ({ result: await orAnalyze(cfg, body), model: visionModelOf(cfg) }));
   return post<AnalysisResponse>('/api/ai/analyze-image', body);
 }
 
@@ -97,10 +125,12 @@ export function generateAIPlan(body: {
   profile: Record<string, unknown>;
   computed: { bmr: number | null; tdee: number | null; rangeMin: number | null; rangeMax: number | null; restrictive: boolean };
   customization?: string;
-}) {
+}): Promise<AIPlanResponse> {
+  if (direct) return viaDirect(async (cfg) => ({ result: await orPlan(cfg, body), model: modelOf(cfg) }));
   return post<AIPlanResponse>('/api/ai/plan', body, 180_000);
 }
 
-export function sendChat(body: { messages: { role: 'user' | 'assistant'; content: string }[]; profile: Record<string, unknown> | null }) {
+export function sendChat(body: { messages: { role: 'user' | 'assistant'; content: string }[]; profile: Record<string, unknown> | null }): Promise<{ reply: string; model: string }> {
+  if (direct) return viaDirect(async (cfg) => ({ reply: await orChat(cfg, body), model: modelOf(cfg) }));
   return post<{ reply: string; model: string }>('/api/ai/chat', body);
 }

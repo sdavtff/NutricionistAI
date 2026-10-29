@@ -7,7 +7,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import type { ZodType } from 'zod';
-import { aiConfigured, analyzeImage, analyzeRequest, chat, chatRequest, generatePlan, HttpError, MODEL, planRequest, PROVIDER, VISION_MODEL } from './ai';
+import { aiConfigured, analyzeImage, analyzeRequest, chat, chatRequest, generatePlan, HttpError, MODEL, planRequest, PROVIDER, serverConfig, VISION_MODEL } from './ai';
 
 try {
   process.loadEnvFile?.('.env');
@@ -116,11 +116,11 @@ const server = createServer(async (req, res) => {
       if (!aiConfigured()) throw new HttpError(503, 'A IA não está configurada no servidor (defina OPENROUTER_API_KEY no arquivo .env).');
       switch (url.pathname) {
         case '/api/ai/analyze-image':
-          return send(res, 200, { result: await analyzeImage(await readJSON(req, analyzeRequest)), model: VISION_MODEL });
+          return send(res, 200, { result: await analyzeImage(serverConfig(), await readJSON(req, analyzeRequest)), model: VISION_MODEL });
         case '/api/ai/plan':
-          return send(res, 200, { result: await generatePlan(await readJSON(req, planRequest)), model: MODEL });
+          return send(res, 200, { result: await generatePlan(serverConfig(), await readJSON(req, planRequest)), model: MODEL });
         case '/api/ai/chat':
-          return send(res, 200, { reply: await chat(await readJSON(req, chatRequest)), model: MODEL });
+          return send(res, 200, { reply: await chat(serverConfig(), await readJSON(req, chatRequest)), model: MODEL });
         default:
           throw new HttpError(404, 'Rota não encontrada.');
       }

@@ -130,7 +130,7 @@ export function AnalyzePage() {
     if (!consent?.aiProcessing) return setConsentModal(true);
     const st = await getAIStatus();
     setStatus(st);
-    if (!st.configured) return setError(!st.online ? 'Você está offline. Registre manualmente ou tente quando estiver conectado.' : 'A análise por IA não está disponível: o servidor de IA não está configurado ou não está em execução.');
+    if (!st.configured) return setError(!st.online ? 'Você está offline. Registre manualmente ou tente quando estiver conectado.' : 'A análise por IA não está disponível: cole sua chave da OpenRouter em Perfil e configurações.');
     setStage('analyzing');
     let imageId: string | null = null;
     try {
@@ -453,10 +453,10 @@ export function AnalyzePage() {
 function AIStatusNotice({ status, consentAI, onEnable }: { status: AIStatus | null; consentAI: boolean; onEnable: () => void }) {
   if (!status) return null;
   if (!status.online) return <Alert kind="warning" title="Você está offline">A análise por IA exige internet. Você ainda pode registrar refeições manualmente no diário.</Alert>;
-  if (status.needsServerUrl) return <Alert kind="info" title="Configure o servidor de IA">No app Android, informe o endereço do servidor de IA em <Link to="/perfil">Perfil e configurações</Link>. Enquanto isso, o registro manual com foto funciona normalmente.</Alert>;
-  if (!status.serverReachable) return <Alert kind="warning" title="Servidor de IA indisponível">O servidor intermediário não respondeu. Rode <code>npm run dev</code> (ou <code>npm start</code>) — veja o README. Registro manual continua disponível.</Alert>;
-  if (!status.configured) return <Alert kind="info" title="IA não configurada">Defina <code>OPENROUTER_API_KEY</code> no arquivo <code>.env</code> do servidor para ativar a análise por foto. Até lá, use o registro manual com foto.</Alert>;
+  if (status.needsServerUrl) return <Alert kind="info" title="Ative a IA">Cole sua chave da OpenRouter em <Link to="/perfil?secao=ia">Perfil e configurações</Link>. Enquanto isso, o registro manual com foto funciona normalmente.</Alert>;
+  if (!status.serverReachable) return <Alert kind="warning" title="IA não configurada">Cole sua chave da OpenRouter em <Link to="/perfil?secao=ia">Perfil e configurações</Link> para ativar a análise por foto. Registro manual continua disponível.</Alert>;
+  if (!status.configured) return <Alert kind="info" title="IA não configurada">Cole sua chave da OpenRouter em <Link to="/perfil?secao=ia">Perfil e configurações</Link> (ou defina <code>OPENROUTER_API_KEY</code> no servidor). Até lá, use o registro manual com foto.</Alert>;
   if (!consentAI) return <Alert kind="info" title="IA disponível, aguardando sua autorização">Você ainda não autorizou o envio de fotos ao serviço de IA. <button className="btn btn-sm btn-soft" style={{ marginLeft: 6 }} onClick={onEnable}>Autorizar</button></Alert>;
-  return <p className="tiny muted center"><Sparkles size={12} /> IA ativa ({status.model}). Os resultados são estimativas e devem ser revisados.</p>;
+  return <p className="tiny muted center"><Sparkles size={12} /> IA ativa via OpenRouter ({status.model}{status.direct ? ', chave própria' : ''}). Os resultados são estimativas e devem ser revisados.</p>;
 }
 

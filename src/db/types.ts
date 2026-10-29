@@ -72,6 +72,10 @@ export interface Settings {
   weightTrackingEnabled: boolean;
   waterGoalMl: number;
   imageQuality: 'economica' | 'padrao';
+  /** Chave própria da OpenRouter (modo direto). Fica só neste dispositivo e nunca é exportada. */
+  openrouterKey?: string;
+  openrouterModel?: string;
+  openrouterVisionModel?: string;
   updatedAt: number;
 }
 

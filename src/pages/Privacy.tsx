@@ -19,12 +19,12 @@ export function PrivacyPolicy() {
       <p><strong>Onde ficam seus dados:</strong> conta, perfil, respostas do questionário, refeições, fotos, peso, hábitos, conversas e configurações são armazenados <strong>somente neste navegador/dispositivo</strong> (IndexedDB). Não temos um servidor com cópia dos seus dados.</p>
       <p><strong>Quando algo sai do dispositivo:</strong> apenas quando você usa, com autorização, um recurso que depende da internet:</p>
       <ul style={{ margin: 0, paddingLeft: 18 }}>
-        <li><strong>Análise de foto, plano com IA e chat:</strong> a foto comprimida, o texto digitado e, se você permitir, seu perfil (sem nome e e-mail) passam pelo servidor do app e são enviados à <strong>OpenRouter</strong>, que os encaminha ao provedor do modelo de IA configurado (por padrão, Anthropic/Claude). O servidor do app não armazena esse conteúdo; consulte as políticas de privacidade da OpenRouter e do provedor do modelo.</li>
+        <li><strong>Análise de foto, plano com IA e chat:</strong> a foto comprimida, o texto digitado e, se você permitir, seu perfil (sem nome e e-mail) são enviados à <strong>OpenRouter</strong> — direto do app, quando você usa a sua própria chave, ou pelo servidor do app —, que os encaminha ao provedor do modelo de IA configurado (por padrão, Anthropic/Claude). O servidor do app não guarda esse conteúdo; consulte as políticas de privacidade da OpenRouter e do provedor do modelo.</li>
         <li><strong>Consulta de rótulos:</strong> o termo ou código de barras buscado é enviado ao Open Food Facts.</li>
       </ul>
       <p><strong>Finalidade e base legal (LGPD):</strong> tratamos os dados para oferecer as funcionalidades educativas do app, com base no seu consentimento, que pode ser revogado a qualquer momento.</p>
       <p><strong>Seus direitos:</strong> consultar, exportar, corrigir e excluir seus dados — tudo disponível nesta tela, sem depender de ninguém.</p>
-      <p><strong>Limites de segurança:</strong> as senhas são guardadas como hash PBKDF2 com sal, mas os demais dados não são criptografados no armazenamento do navegador. Quem tiver acesso ao seu dispositivo/usuário do sistema pode ler esses dados. Limpar os dados do navegador apaga tudo, e não há backup automático. Use um dispositivo protegido por senha e exporte seus dados periodicamente.</p>
+      <p><strong>Limites de segurança:</strong> as senhas são guardadas como hash PBKDF2 com sal, mas os demais dados (incluindo a chave da OpenRouter, se você salvar uma) não são criptografados no armazenamento do navegador. Quem tiver acesso ao seu dispositivo/usuário do sistema pode ler esses dados. Limpar os dados do navegador apaga tudo, e não há backup automático. Use um dispositivo protegido por senha e exporte seus dados periodicamente.</p>
       <p><strong>Não é serviço de saúde:</strong> o app é educativo e não substitui nutricionistas ou médicos.</p>
     </div>
   );

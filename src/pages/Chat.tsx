@@ -1,5 +1,6 @@
 import { MessageCircle, Plus, Send, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { Alert, Button, Spinner, useConfirm } from '../components/ui';
 import { useApp, useUser } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
@@ -36,7 +37,9 @@ export function ChatPage() {
       setActive(c[0] ?? null);
     });
   }, [user.id]);
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), [active?.messages.length, sending]);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [active?.messages.length, sending]);
 
   const canSend = !!consent?.aiProcessing && !!status?.configured;
 
@@ -93,7 +96,7 @@ export function ChatPage() {
 
       {status && !status.configured ? (
         <Alert kind="warning" title="IA indisponível">
-          {!status.online ? 'Você está offline.' : status.needsServerUrl ? 'Informe o endereço do servidor de IA em Perfil e configurações.' : !status.serverReachable ? 'O servidor de IA não está em execução.' : 'O servidor não tem a chave da IA configurada (OPENROUTER_API_KEY).'} O histórico continua disponível para consulta.
+          {!status.online ? 'Você está offline.' : <>Cole sua chave da OpenRouter em <Link to="/perfil?secao=ia">Perfil e configurações</Link> para conversar.</>} O histórico continua disponível para consulta.
         </Alert>
       ) : null}
       {!consent?.aiProcessing ? (

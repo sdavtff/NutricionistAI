@@ -345,6 +345,10 @@ export async function exportUserData(userId: string, includeImages: boolean) {
     } else {
       rows = await db.getAllFromIndex(store, 'by_user', userId);
     }
+    if (store === 'settings') {
+      // A chave da OpenRouter é um segredo: nunca sai do dispositivo na exportação.
+      rows = (rows as Settings[]).map(({ openrouterKey, ...rest }) => ({ ...rest, openrouterKey: openrouterKey ? '(removida da exportação)' : undefined }));
+    }
     if (store === 'images') {
       rows = includeImages
         ? await Promise.all((rows as StoredImage[]).map(async (i) => ({ ...i, blob: await blobToDataURL(i.blob) })))

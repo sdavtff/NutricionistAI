@@ -1,7 +1,8 @@
 import { Bell, ClipboardEdit, LogOut, Moon, Palette, Server, User as UserIcon } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Alert, Button, Field, Segmented, TextInput } from '../components/ui';
+import { OpenRouterSettings } from '../components/OpenRouterSettings';
 import { useApp, useUser } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { saveReminder } from '../db/repo';
@@ -27,6 +28,13 @@ export function SettingsPage() {
   const [apiBase, setApiBaseState] = useState(getApiBase());
   const [apiMsg, setApiMsg] = useState<{ kind: 'success' | 'danger' | 'info'; text: string } | null>(null);
 
+  const { search } = useLocation();
+  useEffect(() => {
+    if (new URLSearchParams(search).get('secao') === 'ia') {
+      const t = setTimeout(() => document.getElementById('ia')?.scrollIntoView({ behavior: 'smooth' }), 150);
+      return () => clearTimeout(t);
+    }
+  }, [search]);
   useEffect(() => { void ensureReminders(user.id).then(setReminders); void notificationPermission().then(setPerm); }, [user.id]);
 
   async function saveProfile(e: FormEvent) {
@@ -96,12 +104,15 @@ export function SettingsPage() {
           onChange={(e) => { const v = Number(e.target.value); if (v >= 500 && v <= 6000) void updateSettings({ waterGoalMl: v }); }} />
       </div>
 
-      <div className="card stack">
-        <div className="row"><Server color="var(--primary)" /><h2>Servidor de IA</h2></div>
+      <OpenRouterSettings />
+
+      <details className="card">
+        <summary className="row" style={{ cursor: 'pointer', listStyle: 'none' }}><Server color="var(--primary)" /><h2>Servidor de IA (alternativa à chave)</h2></summary>
+        <div className="stack mt">
         <p className="small muted">
           {isNative()
-            ? 'O app Android precisa saber onde está o servidor intermediário do Nutricionist AI (que guarda a chave da IA). Sem ele, tudo funciona, exceto análise de foto por IA, plano com IA e chat.'
-            : 'No navegador, o app usa o servidor da mesma origem. Preencha apenas se o servidor estiver em outro endereço.'}
+            ? 'Se preferir não guardar a chave no aparelho, hospede o servidor intermediário do Nutricionist AI (que guarda a chave no .env) e informe o endereço aqui. Quando há uma chave salva acima, ela tem prioridade.'
+            : 'No navegador, o app usa o servidor da mesma origem quando não há chave salva acima. Preencha apenas se o servidor estiver em outro endereço.'}
         </p>
         <TextInput label="Endereço do servidor" placeholder="https://meu-servidor.com" value={apiBase} onChange={(e) => setApiBaseState(e.target.value)} inputMode="url" autoComplete="url" />
         <div className="row-wrap">
@@ -118,7 +129,8 @@ export function SettingsPage() {
           }}>Salvar e testar</Button>
         </div>
         {apiMsg ? <Alert kind={apiMsg.kind}>{apiMsg.text}</Alert> : null}
-      </div>
+        </div>
+      </details>
 
       <div className="card stack">
         <div className="row"><Bell color="var(--primary)" /><h2>Lembretes</h2></div>

@@ -125,3 +125,13 @@ describe('agendamento nativo de lembretes', () => {
     expect(reminderTimes({ ...base, times: ['12:30', '12:30', 'xx'] })).toEqual(['12:30']);
   });
 });
+
+describe('chave da OpenRouter', () => {
+  it('nunca é incluída na exportação de dados', async () => {
+    const { saveSettings, defaultSettings } = await import('../src/db/repo');
+    const u = await newUser('chave@exemplo.com');
+    await saveSettings({ ...defaultSettings(u.id), openrouterKey: 'sk-or-v1-segredo-muito-secreto' });
+    const exp = await exportUserData(u.id, false);
+    expect(JSON.stringify(exp)).not.toContain('segredo-muito-secreto');
+  });
+});

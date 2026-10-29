@@ -31,7 +31,10 @@ Plataforma **educativa** de nutrição com inteligência artificial, em portugu�
 ```
 server/                 Backend intermediário (Node) — guarda a chave da IA, nunca o navegador
   index.ts              HTTP: /api/health, /api/ai/analyze-image, /api/ai/plan, /api/ai/chat; serve dist/ em produção
-  ai.ts                 Integração com a OpenRouter: prompts com regras de segurança, JSON Schema + validação Zod
+  ai.ts                 Configuração da IA no servidor (chave e modelos do .env)
+shared/
+  openrouter.ts         Núcleo da integração com a OpenRouter, usado pelo servidor e pelo app (modo chave própria):
+                        prompts com regras de segurança, JSON Schema + validação Zod, teste de chave e lista de modelos
 src/
   db/                   Persistência (IndexedDB via idb)
     types.ts            Entidades
@@ -90,7 +93,21 @@ npm start                 # http://localhost:8787
 
 Sem a chave, o app funciona normalmente — contas, questionário, plano por regras locais, diário, receitas, compras, progresso, hábitos, lembretes, exportação — e as telas de IA informam que ela não está configurada. **Nenhuma resposta de IA é simulada.**
 
-### Configurar a IA (OpenRouter)
+### Ativar a IA no próprio app (mais simples)
+
+Em **Perfil e configurações → IA — chave da OpenRouter**:
+
+1. Crie uma chave em <https://openrouter.ai/keys> (de preferência exclusiva para o app e com **limite de créditos**).
+2. Cole a chave, escolha o modelo (a lista mostra só modelos que aceitam imagens, com preço por 1 milhão de tokens) e toque em **Salvar e testar chave**. O app confere a chave na OpenRouter sem gastar créditos e mostra o uso e o limite.
+3. Pronto: análise de fotos, plano com IA e chat passam a funcionar, com o app falando **direto com a OpenRouter**, sem servidor.
+
+A chave fica salva só naquele dispositivo (no banco local do app), é enviada apenas para `openrouter.ai`, **nunca entra na exportação de dados** e é apagada em “Excluir tudo”. O armazenamento local não é criptografado: proteja o aparelho com senha e, se perdê-lo, revogue a chave no site da OpenRouter. Quando há chave salva no app, ela tem prioridade sobre o servidor.
+
+### Configurar a IA no servidor (alternativa)
+
+Útil para hospedar o app na web para várias pessoas sem que cada uma precise de uma chave.
+
+
 
 A IA é acessada pela **[OpenRouter](https://openrouter.ai)**, que dá acesso a vários modelos (Claude, GPT, Gemini…) com uma única chave.
 
@@ -130,7 +147,7 @@ O APK gerado assim é assinado com a **chave de depuração** — serve para ins
 
 ### IA no app Android
 
-No APK, a página roda em `https://localhost`, então o app precisa do endereço do servidor intermediário (`server/`), que guarda a chave da IA. Em **Perfil e configurações → Servidor de IA**, informe a URL e toque em “Salvar e testar”:
+O jeito mais simples é colar a sua chave da OpenRouter em **Perfil e configurações → IA — chave da OpenRouter** (veja acima). Se preferir não guardar a chave no aparelho, use um servidor: no APK a página roda em `https://localhost`, então informe o endereço do servidor intermediário (`server/`) em **Perfil e configurações → Servidor de IA (alternativa à chave)** e toque em “Salvar e testar”:
 
 - **Produção**: hospede o servidor (`npm run build && npm start`) com HTTPS (ex.: Render, Railway, Fly.io, uma VPS) e use `https://seu-servidor`.
 - **Testes na rede local**: rode `npm start` no computador e informe `http://IP-DO-COMPUTADOR:8787` (celular e computador na mesma rede Wi-Fi).
